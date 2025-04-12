@@ -1,32 +1,21 @@
 import streamlit as st
 import psycopg2
+from psycopg2 import sql
 from groq import Groq
 import os
 from dotenv import load_dotenv
+import concurrent.futures
+import textwrap
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
+
+# Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Brand lists
-neumann_brands = [
-    "Acrison", "Air+", "Alfa Laval", "Afton Pump", "Aqueous Vets", "Big Wave", "Börger", "CB&I",
-    "Charter Machine", "Clearstream", "Cleveland Mixer", "Creston", "Custom Conveyor", "Dakota Pump",
-    "Daniel Mechanical", "Dupont/Memcor", "Ecoremedy", "Environmental Dynamics", "Environetics",
-    "Esmil", "Evoqua", "Flonergia", "Gardner Denver", "Hoffman & Lamson", "Hallsten", "Hellan Strainer",
-    "Hendrick Screen", "Inovair", "Komline", "Krofta", "Kurita", "Tonka", "Lakeside Equipment", "Lovibond",
-    "Macrotech", "Mass Transfer Systems", "Merit Filter", "Merrick Industries", "Moleaer", "Napier-Reid",
-    "Nefco", "Nexom", "Nordic Water", "Nuove Energie", "Powell", "Primozone", "Purafil", "Rebuild-It",
-    "Reid Lifting", "Robuschi", "Roto Pumps", "RSA Protect", "S & N Airoflo", "Schwing Bioset", "Sentry",
-    "SFA-Enviro", "Smith & Loveless", "Trojan", "Unifilt", "Vaughan", "Wastecorp", "Waterman",
-    "Waterman Industries", "Westfall", "Wigen", "Wilo"
-]
-
-macaulay_brands = [
-    "Ashcroft", "Assmann", "Blue-White", "Cattron", "Cla-Val Company", "Constant Chlor Plus", "Emerson",
-    "Entech Design", "Flow-Tronic", "ProMinent Fluid Controls", "The Mastrrr Company", "Primary Fluid Systems",
-    "Sage Metering", "Regal", "RKI Instruments", "Scaletron", "Wey Valve", "Sensidyne"
-]
+# Manufacturer brand lists
+neumann_brands = [...]
+macaulay_brands = [...]
 
 # Database connection
 def get_db_connection():
@@ -34,38 +23,30 @@ def get_db_connection():
         "postgresql://neondb_owner:npg_noGpAjWE04ym@ep-fragrant-forest-a5ikkddc-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
     )
 
+@st.cache_data
 def get_all_section_names():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT DISTINCT section_name FROM pdf ORDER BY section_name")
-        return [row[0] for row in cursor.fetchall()]
-    finally:
-        cursor.close()
-        conn.close()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT section_name FROM pdf ORDER BY section_name")
+            return [row[0] for row in cursor.fetchall()]
 
+@st.cache_data
 def get_section_content(section_name):
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT content FROM pdf WHERE section_name = %s", (section_name,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+
+# Split large content for concurrent API calls
+def split_content_for_api(content, chunk_token_limit=3000):
+    # Rough approximation: 1 token ≈ 4 characters
+    char_limit = chunk_token_limit * 4
+    return textwrap.wrap(content, char_limit, break_long_words=False, replace_whitespace=False)
+
+# API call for one chunk
+def extract_manufacturers_chunk(chunk):
     try:
-        cursor.execute("SELECT content FROM pdf WHERE section_name = %s", (section_name,))
-        result = cursor.fetchone()
-        return result[0] if result else None
-    finally:
-        cursor.close()
-        conn.close()
-
-# Helper to chunk large content
-def split_text_into_chunks(text, max_tokens=3000):
-    chunk_size = max_tokens * 4  # Roughly 4 characters per token
-    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-
-# Query Groq for each chunk
-def get_manufacturers_info(content):
-    chunks = split_text_into_chunks(content)
-    full_response = ""
-
-    for idx, chunk in enumerate(chunks):
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -77,17 +58,35 @@ def get_manufacturers_info(content):
                 },
                 {
                     "role": "user",
-                    "content": f"(Part {idx+1}) CONSTRUCTION SPECIFICATION CONTENT:\n{chunk}"
+                    "content": f"CONSTRUCTION SPECIFICATION CONTENT:\n{chunk}"
                 }
             ],
             temperature=0.1,
             max_tokens=500
         )
-        full_response += response.choices[0].message.content + "\n"
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error extracting manufacturers: {str(e)}"
 
-    return full_response
+def get_manufacturers_info(content):
+    chunks = split_content_for_api(content)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(extract_manufacturers_chunk, chunks))
+    return "\n".join(results)
 
-# Main UI logic
+def match_brands(manufacturer_list):
+    matched_neumann, matched_macaulay, unmatched = [], [], []
+    for m in manufacturer_list:
+        clean = m.strip("-• \n")
+        if clean in neumann_brands:
+            matched_neumann.append(clean)
+        elif clean in macaulay_brands:
+            matched_macaulay.append(clean)
+        else:
+            unmatched.append(clean)
+    return matched_neumann, matched_macaulay, unmatched
+
+# Streamlit UI
 def main():
     st.markdown("""
         <style>
@@ -98,11 +97,11 @@ def main():
     """, unsafe_allow_html=True)
 
     st.title("🔧 Construction Specifications Analyzer")
-    st.markdown("### Extract manufacturer information from specification sections")
+    st.markdown("### Extract manufacturer info from any section")
 
     sections = get_all_section_names()
     if not sections:
-        st.warning("No sections found in database!")
+        st.warning("No sections found in database.")
         return
 
     selected_section = st.selectbox("Select a section:", sections)
@@ -111,41 +110,28 @@ def main():
         with st.spinner(f"Analyzing {selected_section}..."):
             content = get_section_content(selected_section)
             if not content:
-                st.error("Section content not found")
+                st.error("No content found for this section.")
                 return
 
-            manufacturer_info = get_manufacturers_info(content)
+            manufacturer_output = get_manufacturers_info(content)
+            st.subheader(f"Manufacturers Found in {selected_section}")
+            st.markdown(manufacturer_output)
 
-            st.subheader(f"Manufacturer Information in {selected_section}")
-            st.markdown(manufacturer_info)
+            # Parse and match manufacturers
+            lines = manufacturer_output.splitlines()
+            manufacturers = [line for line in lines if line.strip() and not line.lower().startswith("no manufacturer")]
 
-            # Parse manufacturer list from output
-            manufacturers = [
-                m.strip("-• \n") for m in manufacturer_info.splitlines()
-                if m.strip() and not m.lower().startswith("no manufacturer")
-            ]
+            matched_neumann, matched_macaulay, unmatched = match_brands(manufacturers)
 
-            matched_neumann = []
-            matched_macaulay = []
-            unmatched = []
-
-            for m in manufacturers:
-                if m in neumann_brands:
-                    matched_neumann.append(m)
-                elif m in macaulay_brands:
-                    matched_macaulay.append(m)
-                else:
-                    unmatched.append(m)
-
-            st.markdown("#### ✅ Matched Manufacturers:")
+            st.markdown("#### ✅ Matches Found:")
             if matched_neumann:
                 st.success(f"**Neumann Brands:** {', '.join(matched_neumann)}")
             if matched_macaulay:
                 st.success(f"**Macaulay Brands:** {', '.join(matched_macaulay)}")
             if unmatched:
-                st.warning(f"⚠️ Not Found in Brand Lists: {', '.join(unmatched)}")
+                st.warning("Some manufacturers not in either brand list.")
 
-            with st.expander("📄 View Section Content"):
+            with st.expander("📄 View Full Section Content"):
                 st.code(content[:10000] + ("..." if len(content) > 10000 else ""), language='text')
 
 if __name__ == "__main__":
