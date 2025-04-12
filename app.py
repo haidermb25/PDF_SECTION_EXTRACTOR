@@ -2,7 +2,7 @@ import streamlit as st
 import psycopg2
 from psycopg2 import sql
 from groq import Groq
-
+import os
 # Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # Brand lists
