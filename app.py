@@ -4,7 +4,7 @@ from psycopg2 import sql
 from groq import Groq
 import os
 # Initialize Groq client
-groq_client = Groq(api_key="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")
+ groq_client = os.getenv('GROQ_API_KEY')
 # Brand lists
 neumann_brands = ["Acrison", "Air+", "Alfa Laval", "Afton Pump", "Aqueous Vets", "Big Wave", "Börger", "CB&I", "Charter Machine", "Clearstream", "Cleveland Mixer", "Creston", "Custom Conveyor", "Dakota Pump", "Daniel Mechanical", "Dupont/Memcor", "Ecoremedy", "Environmental Dynamics", "Environetics", "Esmil", "Evoqua", "Flonergia", "Gardner Denver", "Hoffman & Lamson", "Hallsten", "Hellan Strainer", "Hendrick Screen", "Inovair", "Komline", "Krofta", "Kurita", "Tonka", "Lakeside Equipment", "Lovibond", "Macrotech", "Mass Transfer Systems", "Merit Filter", "Merrick Industries", "Moleaer", "Napier-Reid", "Nefco", "Nexom", "Nordic Water", "Nuove Energie", "Powell", "Primozone", "Purafil", "Rebuild-It", "Reid Lifting", "Robuschi", "Roto Pumps", "RSA Protect", "S & N Airoflo", "Schwing Bioset", "Sentry", "SFA-Enviro", "Smith & Loveless", "Trojan", "Unifilt", "Vaughan", "Wastecorp", "Waterman", "Waterman Industries", "Westfall", "Wigen", "Wilo"]
 
