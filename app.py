@@ -111,7 +111,7 @@ def main():
                 else:
                     unmatched.append(m)
 
-            st.markdown("#### ✅ Match Summary:")
+            st.markdown("#### ✅ Match Manufacturers:")
             if matched_neumann:
                 st.success(f"**Neumann Brands:** {', '.join(matched_neumann)}")
             if matched_macaulay:
