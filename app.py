@@ -1,20 +1,32 @@
 import streamlit as st
 import psycopg2
-from psycopg2 import sql
 from groq import Groq
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
-
-# Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # Brand lists
-neumann_brands = ["Acrison", "Air+", "Alfa Laval", "Afton Pump", "Aqueous Vets", "Big Wave", "Börger", "CB&I", "Charter Machine", "Clearstream", "Cleveland Mixer", "Creston", "Custom Conveyor", "Dakota Pump", "Daniel Mechanical", "Dupont/Memcor", "Ecoremedy", "Environmental Dynamics", "Environetics", "Esmil", "Evoqua", "Flonergia", "Gardner Denver", "Hoffman & Lamson", "Hallsten", "Hellan Strainer", "Hendrick Screen", "Inovair", "Komline", "Krofta", "Kurita", "Tonka", "Lakeside Equipment", "Lovibond", "Macrotech", "Mass Transfer Systems", "Merit Filter", "Merrick Industries", "Moleaer", "Napier-Reid", "Nefco", "Nexom", "Nordic Water", "Nuove Energie", "Powell", "Primozone", "Purafil", "Rebuild-It", "Reid Lifting", "Robuschi", "Roto Pumps", "RSA Protect", "S & N Airoflo", "Schwing Bioset", "Sentry", "SFA-Enviro", "Smith & Loveless", "Trojan", "Unifilt", "Vaughan", "Wastecorp", "Waterman", "Waterman Industries", "Westfall", "Wigen", "Wilo"]
+neumann_brands = [
+    "Acrison", "Air+", "Alfa Laval", "Afton Pump", "Aqueous Vets", "Big Wave", "Börger", "CB&I",
+    "Charter Machine", "Clearstream", "Cleveland Mixer", "Creston", "Custom Conveyor", "Dakota Pump",
+    "Daniel Mechanical", "Dupont/Memcor", "Ecoremedy", "Environmental Dynamics", "Environetics",
+    "Esmil", "Evoqua", "Flonergia", "Gardner Denver", "Hoffman & Lamson", "Hallsten", "Hellan Strainer",
+    "Hendrick Screen", "Inovair", "Komline", "Krofta", "Kurita", "Tonka", "Lakeside Equipment", "Lovibond",
+    "Macrotech", "Mass Transfer Systems", "Merit Filter", "Merrick Industries", "Moleaer", "Napier-Reid",
+    "Nefco", "Nexom", "Nordic Water", "Nuove Energie", "Powell", "Primozone", "Purafil", "Rebuild-It",
+    "Reid Lifting", "Robuschi", "Roto Pumps", "RSA Protect", "S & N Airoflo", "Schwing Bioset", "Sentry",
+    "SFA-Enviro", "Smith & Loveless", "Trojan", "Unifilt", "Vaughan", "Wastecorp", "Waterman",
+    "Waterman Industries", "Westfall", "Wigen", "Wilo"
+]
 
-macaulay_brands = ["Ashcroft", "Assmann", "Blue-White", "Cattron", "Cla-Val Company", "Constant Chlor Plus", "Emerson", "Entech Design", "Flow-Tronic", "ProMinent Fluid Controls", "The Mastrrr Company", "Primary Fluid Systems", "Sage Metering", "Regal", "RKI Instruments", "Scaletron", "Wey Valve", "Sensidyne"]
+macaulay_brands = [
+    "Ashcroft", "Assmann", "Blue-White", "Cattron", "Cla-Val Company", "Constant Chlor Plus", "Emerson",
+    "Entech Design", "Flow-Tronic", "ProMinent Fluid Controls", "The Mastrrr Company", "Primary Fluid Systems",
+    "Sage Metering", "Regal", "RKI Instruments", "Scaletron", "Wey Valve", "Sensidyne"
+]
 
 # Database connection
 def get_db_connection():
@@ -43,26 +55,39 @@ def get_section_content(section_name):
         cursor.close()
         conn.close()
 
-def get_manufacturers_info(content):
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": """Extract and list all manufacturer names mentioned in this construction specification. 
-                Return the manufacturers in a clean list format. If no manufacturers are found, 
-                simply state 'No manufacturers found'."""
-            },
-            {
-                "role": "user",
-                "content": f"CONSTRUCTION SPECIFICATION CONTENT:\n{content}"
-            }
-        ],
-        temperature=0.1,
-        max_tokens=500
-    )
-    return response.choices[0].message.content
+# Helper to chunk large content
+def split_text_into_chunks(text, max_tokens=3000):
+    chunk_size = max_tokens * 4  # Roughly 4 characters per token
+    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
+# Query Groq for each chunk
+def get_manufacturers_info(content):
+    chunks = split_text_into_chunks(content)
+    full_response = ""
+
+    for idx, chunk in enumerate(chunks):
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """Extract and list all manufacturer names mentioned in this construction specification. 
+                    Return the manufacturers in a clean list format. If no manufacturers are found, 
+                    simply state 'No manufacturers found'."""
+                },
+                {
+                    "role": "user",
+                    "content": f"(Part {idx+1}) CONSTRUCTION SPECIFICATION CONTENT:\n{chunk}"
+                }
+            ],
+            temperature=0.1,
+            max_tokens=500
+        )
+        full_response += response.choices[0].message.content + "\n"
+
+    return full_response
+
+# Main UI logic
 def main():
     st.markdown("""
         <style>
@@ -70,7 +95,8 @@ def main():
             visibility: hidden;
         }
         </style>
-      """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
     st.title("🔧 Construction Specifications Analyzer")
     st.markdown("### Extract manufacturer information from specification sections")
 
@@ -111,13 +137,13 @@ def main():
                 else:
                     unmatched.append(m)
 
-            st.markdown("#### ✅ Match Manufacturers:")
+            st.markdown("#### ✅ Matched Manufacturers:")
             if matched_neumann:
                 st.success(f"**Neumann Brands:** {', '.join(matched_neumann)}")
             if matched_macaulay:
                 st.success(f"**Macaulay Brands:** {', '.join(matched_macaulay)}")
             if unmatched:
-                st.warning(f"Not Manufacturers Found in Neumann Brands and Macaulay Brands")
+                st.warning(f"⚠️ Not Found in Brand Lists: {', '.join(unmatched)}")
 
             with st.expander("📄 View Section Content"):
                 st.code(content[:10000] + ("..." if len(content) > 10000 else ""), language='text')
