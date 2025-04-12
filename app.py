@@ -117,7 +117,7 @@ def main():
             if matched_macaulay:
                 st.success(f"**Macaulay Brands:** {', '.join(matched_macaulay)}")
             if unmatched:
-                st.warning(f"**Not Found in Brand Lists:** {', '.join(unmatched)}")
+                st.warning(f"Not Manufacturers Found in Neumann Brands and Macaulay Brands")
 
             with st.expander("📄 View Section Content"):
                 st.code(content[:10000] + ("..." if len(content) > 10000 else ""), language='text')
