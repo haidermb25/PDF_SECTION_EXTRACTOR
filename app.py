@@ -3,6 +3,7 @@ import psycopg2
 from psycopg2 import sql
 from groq import Groq
 import os
+from dotenv import load_dotenv
 # Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
