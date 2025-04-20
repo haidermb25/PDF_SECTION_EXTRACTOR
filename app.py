@@ -5,6 +5,8 @@ import concurrent.futures
 import textwrap
 from dotenv import load_dotenv
 import os
+
+load_dotenv()
 # Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # Manufacturer brand lists (fill these with your actual brand lists)
