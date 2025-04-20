@@ -7,11 +7,12 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
+
 # Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
 # Manufacturer brand lists (fill these with your actual brand lists)
 neumann_brands = ["Acrison", "Air+", "Alfa Laval", "Afton Pump", "Aqueous Vets", "Big Wave", "Börger", "CB&I", "Charter Machine", "Clearstream", "Cleveland Mixer", "Creston", "Custom Conveyor", "Dakota Pump", "Daniel Mechanical", "Dupont/Memcor", "Ecoremedy", "Environmental Dynamics", "Environetics", "Esmil", "Evoqua", "Flonergia", "Gardner Denver", "Hoffman & Lamson", "Hallsten", "Hellan Strainer", "Hendrick Screen", "Inovair", "Komline", "Krofta", "Kurita", "Tonka", "Lakeside Equipment", "Lovibond", "Macrotech", "Mass Transfer Systems", "Merit Filter", "Merrick Industries", "Moleaer", "Napier-Reid", "Nefco", "Nexom", "Nordic Water", "Nuove Energie", "Powell", "Primozone", "Purafil", "Rebuild-It", "Reid Lifting", "Robuschi", "Roto Pumps", "RSA Protect", "S & N Airoflo", "Schwing Bioset", "Sentry", "SFA-Enviro", "Smith & Loveless", "Trojan", "Unifilt", "Vaughan", "Wastecorp", "Waterman", "Waterman Industries", "Westfall", "Wigen", "Wilo"]
-
 
 macaulay_brands = ["BrandA", "BrandB"]
 
@@ -92,59 +93,8 @@ def match_brands(manufacturer_list):
 
 # Streamlit UI
 def main():
-    st.markdown("""
-        <style>
-        .main { background-color: #f8f9fa; }
-        .stSelectbox div[data-baseweb="select"] > div {
-            border-radius: 8px;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-        }
-        .stButton button {
-            background-color: #4a6fa5;
-            color: white;
-            border-radius: 8px;
-            padding: 10px 24px;
-            border: none;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        .stButton button:hover {
-            background-color: #3a5a80;
-            transform: translateY(-2px);
-        }
-        .stMarkdown h1 { color: white; border-bottom: 2px solid #4a6fa5; padding-bottom: 10px; }
-        .stMarkdown h2 { color: white; }
-        .stSuccess {
-            background-color: #d4edda !important;
-            color: #155724 !important;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 10px 0 !important;
-        }
-        .stWarning {
-            background-color: #fff3cd !important;
-            color: #856404 !important;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 10px 0 !important;
-        }
-        .stExpander {
-            border-radius: 8px !important;
-            border: 1px solid #dee2e6 !important;
-            margin-top: 20px !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
     st.title("📑 Construction Specifications Analyzer")
-    st.markdown("""
-        <div style='background-color: #e9f5ff; padding: 20px; border-radius: 10px; margin-bottom: 20px;'>
-            <h3 style='color: #2c3e50; margin-top: 0;'>Extract manufacturer information from PDF specifications</h3>
-            <p style='color: #4a6fa5;'>Select a PDF document and then choose a section to analyze for manufacturer data.</p>
-        </div>
-    """, unsafe_allow_html=True)
-
+    
     # First dropdown for PDF selection
     pdf_names = get_unique_pdf_names()
     if not pdf_names:
@@ -154,8 +104,7 @@ def main():
     pdf_options = ["-- Select a PDF --"] + pdf_names
     selected_pdf = st.selectbox(
         "1. Select a PDF document:",
-        pdf_options,
-        key="pdf_selector"
+        pdf_options
     )
 
     if selected_pdf == "-- Select a PDF --":
@@ -171,8 +120,7 @@ def main():
     section_options = ["-- Select a section --"] + sections
     selected_section = st.selectbox(
         "2. Select a section:",
-        section_options,
-        key="section_selector"
+        section_options
     )
 
     if selected_section == "-- Select a section --":
